@@ -1,0 +1,16 @@
+## 
+## COMMAND: bimbam -g ./inputs/synthetic_geno_bimbam.txt -p ./inputs/synthetic_pheno_bimbam.txt -o bimbam_out -mph 2 -f 6 -A 0.05 -A 0.1 -A 0.2 -A 0.4 
+## randseed = 1698782689
+## BIMBAM: Number of position files = 0
+## BIMBAM: Position files contain 0 records.
+## BIMBAM: File 0 has 763 ind's and 6 SNPs
+## number genotype files = 1
+## number phenotype files = 1
+## number of diploid = 763
+## number of haploid = 0
+## number of panel individuals = 0
+## number of cohort = 763
+## number of snp = 6
+## number cohort only snp = 6
+###: number of phenotypes = 6
+## BIMBAM: Use user specified priors on additive effects

@@ -1,0 +1,327 @@
+---
+title: "mvNUR Workflow 0: Data preparation"
+author: "Lacey W. Heinsberg"
+output:
+  github_document:
+  html_preview: false
+  toc: true
+  pdf_document:
+    toc: yes
+    toc_depth: '5'
+    number_sections: true
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_depth: '5'
+    code_folding: show
+header-includes: 
+  - \renewcommand{\and}{\\}
+---
+
+```{r,echo=FALSE,message=FALSE,warning=FALSE}
+require(knitr)
+```
+
+# Copyright
+
+Copyright 2023, University of Pittsburgh. All Rights Reserved.        
+License: CC BY-SA 3.0 ([link](https://creativecommons.org/licenses/by-sa/3.0/))     
+
+# Overview
+
+A fully synthetic example data set has been created to accompany this repository so that we can freely and safely share it without restriction on GitHub in order to document the analytical steps and interpretation related to our two exemplar multivariate Bayesian approaches. The real data from which the synthetic data were generated were collected via a nurse-led study from the University of Pittsburgh focused on individuals with breast cancer. The study collected extensive data related to symptoms, and a sub-study collected candidate gene single nucleotide polymorphism (SNP) data. Candidate symptoms selected for inclusion in this tutorial included anxiety, depression, fatigue, daytime sleepiness, cognitive function, and pain. Candidate SNPs selected for examination in this study included rs4880, rs5746136, rs1041740, rs10432782, rs4135225, and rs7522705. The original data set consisted of 110 participants. For the purposes of our examples, a larger, synthetic data set mirroring the statistical properties of the original data set was created. The data set contains 770 participants. 
+
+# Load libraries
+
+Load the libraries needed to run the code. 
+
+```{r load_libraries2, message=FALSE, warning=FALSE}
+library(tidyverse) ## Data wrangling 
+library(pander) ## Table formatting 
+library(preprocessCore) ## Preprocessing functions
+#if (!require("BiocManager", quietly = TRUE))
+#    install.packages("BiocManager") ## Facilitate installation of preprocessCore
+#BiocManager::install("preprocessCore") 
+# Note: `preprocessCore` isn't available for R version 4.3.1, but can be installed using `biocManager` https://bioconductor.org/packages/release/bioc/html/preprocessCore.html
+library(corrplot) ## Visualize correlation matrix
+```
+
+# Prepare data for multiariate analyses
+
+The programs we will use for multivariate analyses (bnlearn and mvBIMBAM) require the data to be in a specific format for analysis. In this markdown, we are preparing and formatting the data for analysis.
+
+## Read in the synthetic data set 
+
+Please see the README.md for information regarding the example synthetic data set. 
+
+```{r load_data}
+# Read in the synthetic data set created for use with this example analysis code
+df_synth <- read.csv("data/BrCa_synthetic.csv")
+head(df_synth)
+n <- dim(df_synth)[1]
+
+# Define the phenotypes (in this case, symptoms) of interest
+traits <- c("EMO_tscore", "bdito", "FAT_tscore", "paohcif", "EPSscore", "pain")
+
+# Define variants of interest 
+genes <- c("rs4880", "rs5746136", "rs1041740", "rs10432782", "rs4135225", "rs7522705")
+```
+
+In brief, the data set focuses on 6 symptoms (`r traits`) and 6 candidate variants of interest (`r genes`) and contains `r n` participants. 
+
+```{r}
+# Read in a mapping of variable name to informative label
+dict <- read.csv("data/BrCa_synthetic_SimpleDict.csv")
+pander(dict, "Data dictionary") 
+```
+
+Examine correlation structure of the symptoms. 
+
+```{r}
+# Subset the dataset to include only the selected traits
+subset_df <- df_synth[traits]
+# Calculate the correlation matrix
+cor_matrix <- cor(subset_df, use = "complete.obs")
+# Define custom labels for rows and columns
+custom_labels <- c(
+  "EMO_tscore" = "Anxiety",
+  "bdito" = "Depression",
+  "FAT_tscore" = "Fatigue",
+  "paohcif" = "Cognitive function",
+  "EPSscore" = "Sleepiness",
+  "pain" = "Pain"
+)
+# Update row and column names using custom labels
+rownames(cor_matrix) <- custom_labels[rownames(cor_matrix)]
+colnames(cor_matrix) <- custom_labels[colnames(cor_matrix)]
+# Create a correlation plot
+corrplot(cor_matrix, method = "circle", type = "lower", tl.col = "black", tl.srt = 45)
+```
+
+Examine correlation structure of SNPs. 
+
+```{r}
+# Subset the dataset to include only the selected traits
+subset_df <- df_synth[genes]
+# Calculate the correlation matrix
+cor_matrix <- cor(subset_df, use = "complete.obs")
+# Create a correlation plot
+corrplot(cor_matrix, method = "circle", type = "lower", tl.col = "black", tl.srt = 45)
+```
+
+Summarize missing data 
+
+```{r}
+missing_data_table <- df_synth %>%
+  summarise(across(everything(), ~sum(is.na(.)))) %>% # Count NA values in each column
+  gather(key = "Column", value = "Number_of_NAs") %>% # Convert to long format
+  arrange(desc(Number_of_NAs)) # Sort by the number of NAs
+pander(missing_data_table)
+```
+
+## Clean up data
+
+First, let's prepare our data sets. Currently, the software we are using does not allow missing data for multivariate phenotype analysis, so select complete cases only. We will also set up a few data frames in preparation to regress out variation related to our covariates of interest (in this example, age and race).
+
+(1) `df_i1_regress`: contains all variables of interest ordered and filtered for complete cases                  
+(2) `df_i1`: contains all variables except the covariates that will be regressed out below (in this example, age and race)       
+(3) `df_synth`: Recode 0, 1, 2 genotypes to AA, AB, BB for later use in mvBIMBAM                 
+
+```{r prep}
+# The first data frame (df_i1_regress) contains all variables of interest ordered 
+# and filtered for complete cases
+df_i1_regress <- df_synth %>% 
+  select(all_of(genes), 
+         all_of(traits),
+         race, 
+         age) %>%
+  filter(complete.cases(.))
+n <- dim(df_i1_regress)
+
+# The second data frame (df_i1) contains all variables except the covariates that
+# will be regressed out (in this example, age and race)
+df_i1 <- df_synth %>% 
+  select(all_of(genes), all_of(traits)) %>% 
+  filter(complete.cases(.))
+
+# Recode 0, 1, 2 genotypes to AA, AB, BB for later use in mvBIMBAM 
+df_synth <- df_synth %>% 
+  mutate_at(
+    .vars = vars(starts_with("rs")),
+    .funs = list(~ case_when(
+      . == 2 ~ "BB",
+      . == 1 ~ "AB",
+      . == 0 ~ "AA"
+    ))
+  )
+
+# Create Genotype (G) and Phenotype (Y) matrices
+G <- as.matrix(df_i1 %>% select(all_of(genes)))
+head(G)
+Y <- as.matrix(df_i1 %>% select(all_of(traits)))
+head(Y)
+```
+
+There are `r n` participants with complete data that we will retain for our analyses. 
+
+## Normalize and adjust data for covariates 
+
+In this example, we are adjusting our phenotypes of interest for the covariates age and race using ordinary linear regression models. If adapting this code for your own work, manually edit the covariate names in the `f_quatile_norm_resid()` function. Note that the sensitivity of the Bayesian multivariate mvBIMBAM framework to outlier values and non-normality also necessitates the normalization of phenotypes. As shown below, residualized phenotypes (i.e., adjusted for age/race) are order quantile-normalized. 
+
+### Create adjustment/normalization functions 
+
+```{r normalize_adjust_functions}
+# Create a function to perform residual adjustment for covariates (in this example,
+# we are adjusting for age and race)
+f_quantile_norm_resid <- function(Y, df) {
+  {o <- apply(Y, 2, function(x) resid(lm(x ~ age + race, data = df)))} # If adapting this code for your own work, edit this line to adjust for covariates of interest, replacing age and race with your covariate variable names 
+  return(o)
+}
+
+# Create function to 'super quantile normalize' the data 
+f_quantile_normalize_adjust <- function(Y, data, ...) {
+  # Quantile normalize
+  Y_qn <- normalize.quantiles(Y)
+  # Fit Y ~ Age + Race, extra residual (using function created above)
+  Y_qn_resid <- f_quantile_norm_resid(Y = Y_qn, df = data, ...) 
+  # Quantile normalize the residual
+  Y_qn_resid_qn <- data.frame(normalize.quantiles(Y_qn_resid))
+  return(Y_qn_resid_qn)
+}
+```
+
+### Apply functions to perform normalization and covariate adjustment
+
+```{r normalize_adjust}
+# Create a quantile normalized adjusted Y data frame (i.e., quantile normalization 
+# and covariate adjustment is performed in one fell swoop)
+qn_resid_Y <- f_quantile_normalize_adjust(Y, data = df_i1_regress)
+# Create a copy of this data frame for use later in this workflow 
+qn_resid_Y_b <- qn_resid_Y 
+# Rename the columns of the quantile normalized data frame to match the 
+# phenotypes of interest  
+names(qn_resid_Y) <- traits
+head(qn_resid_Y)
+```
+
+Note: For one test user (DM), the above chunk threw the error:
+
+```
+Error in normalize.quantiles(Y) : 
+ERROR; return code from pthread_create() is 22
+```
+
+This issue was resolved by updating Rstudio to the latest version. 
+
+## Remove outliers 
+
+Observations in violation of multivariate normality at an alpha=0.01 level based on Mahalanobis distance-based test statistics are now removed to avoid spurious conclusions.  
+
+### Write a function to calculate Mahalanobis distance 
+
+```{r outliers_function}
+# Create a function to calculate Mahalanobis distance
+getMD <- function(x) {
+  Sx <- cov(x)
+  m <- mahalanobis(x, colMeans(x), Sx)
+  return(m)
+}
+```
+
+### Apply function to identify outliers
+
+```{r outliers}
+# Drop individuals with data violating multivariate normality at alpha = 0.01
+i_keep <- which(pchisq(getMD(qn_resid_Y_b), df = dim(Y)[2]) > 0.01)
+```
+
+## Create a summary 
+
+```{r sample_summary}
+# Record sample sizes in a summary table
+table1 <- data.frame(study=rep(NA,1),N.traits=NA,N.variants=NA,N.total=NA,n.complete=NA,n.used=NA)
+i <- 1
+table1[i,"study"] <- "Synthetic Cohort - Traits"
+table1[i,"N.total"] <- nrow(df_synth)
+table1[i,"n.complete"] <- nrow(qn_resid_Y)
+table1[i,"n.used"]  <- nrow(qn_resid_Y[i_keep, ])
+table1[i,"N.traits"] <- ncol(qn_resid_Y)
+table1[i,"N.variants"] <- length(genes)
+table1[i,]
+
+# Print number of observations due to violation of multivariate normality 
+cat(dim(Y)[1] - length(i_keep), " Obs removed due to violation of MV-Normality")
+
+# Add to summary table
+table1$n.removed <- table1$N.total - table1$n.used
+table1$percent.removed <- round(100*table1$n.removed/table1$N.total,2)
+```
+
+```{r}
+pander(table1,caption="Sample sizes")
+```
+
+## Prepare and save final files
+
+### mvBIMBAM
+
+```{r prepare_final_files}
+# Write phenotypes to a text file for use in mvBIMBAM 
+if (!dir.exists("./inputs")) {
+  dir.create("./inputs")
+}
+write.table(round(qn_resid_Y[i_keep,], 8), 
+            "./inputs/synthetic_pheno_bimbam.txt", sep = " ", 
+            row.names = F, col.names = F)
+
+# Refine genotype data for mvBIMBAM and write file
+Geno_write <- df_synth %>% select(all_of(genes), all_of(traits)) %>%
+  filter(complete.cases(.)) %>%
+  select(all_of(genes)) %>%
+  {.[i_keep,]} # Apply i_keep matrix here to retain non-outlying participants
+
+# Grep rs column numbers to create the geno_string file required for mvBIMBAM format
+rs_cols <- grep("^rs", colnames(df_synth), value = TRUE)
+
+# Create geno_string format required for mvBIMBAM, filtering data set for only i_keep participants
+Geno_String <- map(rs_cols, ~ {
+  Geno_write <- df_synth %>%
+    select(all_of(.x), all_of(traits)) %>%
+    filter(complete.cases(.)) %>%
+    select(all_of(.x))%>%
+    {.[i_keep,]}
+  
+  # Creating the Geno_String for each SNP rsID  
+  Geno_String <- paste0(unlist(c(Geno_write)), collapse = ",")
+  Geno_String <- paste0(.x, ",", Geno_String)
+  
+  Geno_String
+}) 
+
+# Polish geno_string for mvBIMBAM
+final_Geno_String <- paste0(unlist(Geno_String), collapse = "\n")
+M <- length(unlist(strsplit(Geno_String[[1]], ","))) - 1
+N <- length(Geno_String)
+final_Geno_String <- paste0(M, "\n", N, "\n", final_Geno_String)
+
+# Write it out 
+writeLines(final_Geno_String, con = "./inputs/synthetic_geno_bimbam.txt", sep = "")
+```
+
+### bnlearn
+
+```{r}
+# Check for data directory; if not present, create it 
+if (!dir.exists("./data")) {
+  dir.create("./data")
+}
+
+# Write data for bnlearn
+saveRDS(data.frame(Geno_write, round(qn_resid_Y[i_keep,], 8)), file = "data/SyntheticQuantNorm.rds")
+```
+
+# Session information
+
+```{r}
+sessionInfo()
+```

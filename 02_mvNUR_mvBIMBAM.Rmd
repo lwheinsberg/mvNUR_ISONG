@@ -1,0 +1,201 @@
+---
+title: "mvNUR Workflow 2: mvBIMBAM"
+author: "Lacey W. Heinsberg"
+output:
+  github_document:
+  html_preview: false
+  toc: true
+  pdf_document:
+    toc: yes
+    toc_depth: '5'
+    number_sections: true
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_depth: '5'
+    code_folding: show
+header-includes: 
+  - \renewcommand{\and}{\\}
+---
+
+```{r,echo=FALSE,message=FALSE,warning=FALSE}
+require(knitr)
+```
+
+# Copyright
+
+Copyright 2023, University of Pittsburgh. All Rights Reserved.        
+License: CC BY-SA 3.0 ([link](https://creativecommons.org/licenses/by-sa/3.0/))     
+
+# Overview
+
+Please note that this code was adapted from previous work led by Jerry Zhang, Lacey Heinsberg, and Daniel Weeks: 
+
+Zhang JZ, Heinsberg LW, Krishnan M, Hawley NL, Major TJ, Carlson JC, Harré Hindmarsh J, Watson H, Qasim M, Stamp LK, Dalbeth N, Murphy R, Sun G, Cheng H, Naseri T, Reupena MS, Kershaw EE, Deka R, McGarvey ST, Minster RL, Merriman TR, Weeks DE. Multivariate analysis of a missense variant in CREBRF reveals associations with measures of adiposity in people of Polynesian ancestries. Genet Epidemiol. 2023 Feb;47(1):105-118. doi: 10.1002/gepi.22508. Epub 2022 Nov 9. PMID: 36352773; PMCID: PMC9892232.
+
+[GitHub Repository](https://github.com/lwheinsberg/mvCREBRF)
+
+Note this code is dependent upon `00_mvNUR_DataPrep.Rmd` which creates the mvBIMBAM input files detailed below. 
+
+## mvBIMBAM 
+
+mvBIMBAM is a command line program for multivariate genetic association analysis of multiple related phenotypes. In the mvBIMBAM framework, a global null model representing no association between phenotypes and genotypes is compared with an exhaustive combination of alternative models in which all different combinations of phenotype-genotype associations are considered (see `mph2` details below). For the alternative models, the mvBIMBAM methodology splits phenotype-genotype associations into all possible partitions of U, D, and I, each representing ‘unassociated', ‘directly’, and ‘indirectly’ associated. Details about the analyses and interpretation can be found below. Installation and troubleshooting instructions can be found in the README file. 
+
+# Load libraries
+
+Load the libraries needed to run the code. 
+
+```{r load_libraries2, message=FALSE, warning=FALSE}
+library(tidyverse)
+select = dplyr::select
+library(ggplot2)
+# The 'preprocessCore' is a Bioconductor package
+library(preprocessCore)
+library(pander)
+library(stringr)
+```
+
+# Data 
+
+Most of our data (created in `00_mvNUR_DataPrep.Rmd`) are simply called by the system (see below) and not formerly loaded into R. Here though, we will store a list of phenotypes and variants of interest. See README.md for information about phenotypes and SNPs of interest. 
+
+```{r define}
+# Define the phenotypes of interest
+traits <- c("EMO_tscore", "bdito", "FAT_tscore", "paohcif", "EPSscore", "pain")
+trait_mapping <- c("Anxiety", "Depression", "Fatigue", "Cognitive function", "Sleepiness", "Pain")
+
+# Define variants of interest 
+genes <- c("rs4880", "rs5746136", "rs1041740", "rs10432782", "rs4135225", "rs7522705")
+```
+
+# mvBIMBAM analyses
+
+We will now apply mvBIMBAM to the synthetic data set we are working with. Rather than navigating the analyses in the terminal, we can make our code reproducible in R and call mvBIMBAM through the R using `call system()`. More information about the program can be found under the original [mvBIMBAM documentation](https://github.com/heejungshim/mvBIMBAM/blob/master/doc/mvBIMBAM_Manual.pdf) on GitHub. In brief, the command we need contains the following parameters: 
+
+-g: location of the genotype data (for our example the location is: ./inputs/synthetic_geno_bimbam.txt)
+-p: location of the phenotype data (for our example the location is: ./inputs/synthetic_pheno_bimbam.txt)
+-o: prefix for output files (for our example we will use: bimbam_out)
+-f: number of phenotypes to analyze (length(traits), for our example this number is 6)
+-A: indicate multiple values for sigma (see mvBIMBAM manual for more details;  for our example we will use a range of values from 0.05 to 0.4)
+-mph1 vs. mph2: analysis settings (see mvBIMBMAM manual for more details and our note below; for this example we will run mph2)
+
+A note about `mph1` vs. `mph2`: In brief, `-mph1` performs a simple multivariate test of the null hypothesis vs a general multivariate alternative. Because it does not consider all partitions of the alternative hypothesis, it is quite fast, can handle a moderately large number of phenotypes, and be run on a whole-genome scale. However, it was originally intended to be used only as needed in an initial filtering step before running the more computationally-intensive `-mph 2` analyses. Because of the way `-mph1` functions, it does not allow you to ask interesting questions such as which phenotypes are associated with each SNP. To do this more detailed analysis use the `-mph 2` option. Note that if you have only a handful of phenotypes, you may be able to run the `-mph 2` analysis genome wide on all variants and skip `-mph1` all together. 
+
+A quick warning from the creators of mvBIMBAM: the prior used in mvBIMBAM is based on the idea that if a variant is associated with one phenotype, then it is likely associated with multiple phenotypes. That is, it is relatively permissive of associations with multiple phenotypes, and does not attempt to be "skeptical" of additional associations. In this sense it is more suited to hypothesis generation than of hypothesis testing. The prior can be changed to be more skeptical, but it requires that you dig into the last output file, below. This adjustment is beyond the scope of this guide. 
+
+```{r bimbamRun, echo=FALSE, warning=FALSE}
+# Call system() to run mvBIMBAM by specifying settings for analysis using 
+# the following settings:  
+call <- paste0("bimbam -g ./inputs/synthetic_geno_bimbam.txt -p ./inputs/synthetic_pheno_bimbam.txt -o bimbam_out -mph 2 -f ", length(traits), " -A 0.05 -A 0.1 -A 0.2 -A 0.4")
+print(call)
+# Please note that this can take a few minutes
+system(call, intern = TRUE)
+```
+
+```
+bimbam -g ./inputs/synthetic_geno_bimbam.txt -p ./inputs/synthetic_pheno_bimbam.txt 
+-o bimbam_out -mph 2 -f 6 -A 0.05 -A 0.1 -A 0.2 -A 0.4
+```
+
+Once we run the chunk above, we can then find our output at ./output/bimbam_out.mph.BFs.txt. 
+
+# Results
+
+## Bayes factors (BF)
+
+The evidence against the null hypothesis is the sum of Bayes factors (BF) (log10 scale) of all partitions weighted by a diffuse prior. Let's read in our BF factor results file to take a look. 
+
+```{r BF, warning=FALSE}
+# Initialize an empty matrix to store the values
+s <- readLines("./output/bimbam_out.mph.BFs.txt")
+m <- matrix(nrow = length(s), ncol = length(traits)+2)
+snp_names <- matrix(nrow = length(s), ncol = 1)
+
+# Process each line and clean up result matrix
+for (i in 1:length(s)) {
+  # Split the line by spaces
+  split_values <- strsplit(s[i], "\\s+")[[1]]
+  # Convert the remaining values to numeric format
+  numeric_values <- as.numeric(split_values[-1])
+  # Store the numeric values in the matrix
+  m[i, 1:(length(numeric_values))] <- numeric_values
+  snp_names[i] <- split_values[1]
+}
+rownames(m) <- snp_names
+# Store results in m1 object and update column names
+m1 <- m
+colnames(m1) <- c("BF", "BF_All_Partition", trait_mapping)
+```
+
+```{r BF_results}
+# View results
+pander(m1, digits = 4, caption = "Bayes Factors for Synthetic Example Data Set")
+```
+
+Interpretation: The above table presents the overall log10 BF for the network, and individual log10 BFs for each trait. Strong evidence of association is defined as log10 BF > 5; suggestive evidence is defined as 1.5 < log10 BF < 5; and negligible evidence is defined as log10 BF < 1.5. 
+
+In this synthetic data set, we see that all SNPs (rs7522705 less so and rs4135225 more so) appear to play a strong role in this network. rs4880 has suggestive associations with cognitive function and pain; rs5746136 has significant associations with sleepiness; rs1041740 has significant associations with anxiety and cognitive function and a suggestive association with fatigue, etc. 
+
+## Bayesian posterior probabilities of association 
+
+In addition to log10 BFs, probabilities for no association, direct association, and indirect association are given as output while marginal posterior probabilities of association (MPPA) are calculated by summing the marginal posterior probabilities of direct and indirect association.
+
+```{r, warning=F}
+# Read in second result file
+s <- readLines("./output/bimbam_out.mph.prob.txt")
+
+# Initialize an empty list to store the matrix for each rs#
+matrix_list <- vector("list", length(s))
+
+# Process each line
+for (i in 1:length(s)) {
+  # Split the line by spaces
+  split_values <- strsplit(s[i], "\\s+")[[1]]
+  # Store the rs# value
+  rs <- split_values[1]
+  
+  m2 <- matrix(na.omit(as.numeric(str_split(s, " ")[[i]])), nrow = 2)
+  m2 <- rbind(m2, 1 - (m2[1,] + m2[2,]))
+  
+  # Set the column and row names
+  colnames(m2) <- trait_mapping
+  rownames(m2) <- c(paste0(rs, "_Unassociated"), paste0(rs, "_Directly"), paste0(rs, "_Indirectly"))
+
+  # Store the matrix in the list, using rs# as the name
+  matrix_list[[i]] <- list(rs = rs, m2 = m2)
+}
+
+# Combine all matrices into a single matrix
+m2 <- do.call(rbind, lapply(matrix_list, function(x) x$m))
+for (i in 1:ncol(m2)) {
+  m2[, i] <- as.numeric(gsub("\"", "", m2[, i]))
+}
+```
+
+```{r probabilities_results}
+pander(m2, digits = 4, caption = "Bayesian Probabilities for Synthetic Example Data Set")
+```
+
+Interpretation: The numbers above can be interpreted as the probability of no association, direct association, or indirect association, which together sum to 1 (i.e., 100%). Both directly and indirectly associated phenotypes are associated with a given genotype, but indirectly associated phenotypes are conditionally independent of the genotype given the presence of a directly associated phenotype in the model. 
+
+For example, in this synthetic data set, there is a suggested 92.4% probability that there is a direct association between rs1041740 and anxiety. In addition, while there is a 0% chance of no association between rs4135225 and sleep, the likelihood of direct vs. indirect effects is more split at 32.4% and 67.6%, respectively. While mvBIMBAM doesn't inform of us what variable indirect associations are conditional on, we can look back at our bnlearn network for more information.
+
+# Save data and results
+
+To conclude, save the Bayes factors from the mvBIMBAM results.  
+
+## mvBIMBAM BFs
+
+```{r save_results}
+save(m1, m2, table1, file = "data/mvBimBam_Results.RDdata")
+```
+
+# Conclusion 
+
+And with that, we conclude our `mvBIMBAM` tutorial! We hope that this code is documented in enough detail so that you can easily adapt it for your own projects, but feel free to reach out with any questions! -Lacey 
+
+# Session information
+
+```{r}
+sessionInfo()
+```
