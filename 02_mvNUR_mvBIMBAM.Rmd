@@ -172,13 +172,20 @@ for (i in 1:ncol(m2)) {
 }
 ```
 
+```{r}
+rs104_dir <- m2[8,1]*100
+rs413_no <- m2[13,5]*100
+rs413_d <- m2[14,5]*100
+rs413_i <- m2[15,5]*100
+```
+
 ```{r probabilities_results}
 pander(m2, digits = 4, caption = "Bayesian Probabilities for Synthetic Example Data Set")
 ```
 
 Interpretation: The numbers above can be interpreted as the probability of no association, direct association, or indirect association, which together sum to 1 (i.e., 100%). Both directly and indirectly associated phenotypes are associated with a given genotype, but indirectly associated phenotypes are conditionally independent of the genotype given the presence of a directly associated phenotype in the model. 
 
-For example, in this synthetic data set, there is a suggested 92.4% probability that there is a direct association between rs1041740 and anxiety. In addition, while there is a 0% chance of no association between rs4135225 and sleep, the likelihood of direct vs. indirect effects is more split at 32.4% and 67.6%, respectively. While mvBIMBAM doesn't inform of us what variable indirect associations are conditional on, we can look back at our bnlearn network for more information.
+For example, in this synthetic data set, there is a suggested `r rs104_dir`% probability that there is a direct association between rs1041740 and anxiety. In addition, while there is a `r rs413_no`% probability of no association between rs4135225 and sleep, the likelihood of direct vs. indirect effects is more split at `r rs413_d`%  and `r rs413_i`%, respectively. While mvBIMBAM doesn't inform of us what variable indirect associations are conditional on, we can look back at our bnlearn network for more information.
 
 # Save data and results
 
