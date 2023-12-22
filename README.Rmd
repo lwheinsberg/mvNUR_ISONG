@@ -16,10 +16,23 @@ knitr::opts_chunk$set(
 )
 ```
 
+# Repository Superceded
+
+**Note:** As of December 2023, this repository has been superceded by a new and improved version. The updated tutorial is now available at [github.com/lwheinsberg/mvNUR](https://github.com/lwheinsberg/mvNUR). Please visit the new repository for the latest content and improvements.
+
+Thank you for your interest and understanding!
+
+*****************************************
+
+OLD CONTENT RETAINED BELOW 
+
 # Copyright information 
 
 Copyright 2023, University of Pittsburgh. All Rights Reserved.
 License: [GPL-2](https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html)
+
+
+
 
 # Overview
 

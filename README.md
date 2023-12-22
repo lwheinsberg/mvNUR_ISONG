@@ -3,12 +3,25 @@ A Guide to Multivariate Bayesian Analyses in Nursing Research
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
-# 1 Copyright information
+# 1 Repository Superceded
+
+**Note:** As of December 2023, this repository has been superceded by a
+new and improved version. The updated tutorial is now available at
+[github.com/lwheinsberg/mvNUR](https://github.com/lwheinsberg/mvNUR).
+Please visit the new repository for the latest content and improvements.
+
+Thank you for your interest and understanding!
+
+------------------------------------------------------------------------
+
+OLD CONTENT RETAINED BELOW
+
+# 2 Copyright information
 
 Copyright 2023, University of Pittsburgh. All Rights Reserved. License:
 [GPL-2](https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html)
 
-# 2 Overview
+# 3 Overview
 
 *I have a Bayesian inference joke but the first three people I told it
 to didn’t laugh and now I’m not so sure it’s funny.* - @JSEllenberg
@@ -73,9 +86,9 @@ program with no point/click desktop app. As such, please note that this
 example code, particularly the mvBIMBAM approach, requires at least an
 introductory understanding of R and Unix.
 
-# 3 Installation
+# 4 Installation
 
-## 3.1 bnlearn
+## 4.1 bnlearn
 
 You can install bnlearn from
 [CRAN](https://cran.r-project.org/web/packages/bnlearn/index.html)
@@ -90,7 +103,7 @@ or
 Check your R version if your are having any issues installing. As of
 October 2023, bnlearn requires R version 4.2.0 or higher.
 
-## 3.2 mvBIMBAM
+## 4.2 mvBIMBAM
 
 mvBIMBAM can be installed from
 [GitHub](https://github.com/heejungshim/mvBIMBAM). We have expanded on
@@ -107,7 +120,7 @@ input files for Mac is in `mvBIMBAM\forMAC` directory. For transparency
 and to provide as much help as possible, we have expanded on the Mac
 instructions below.
 
-### 3.2.1 Mac
+### 4.2.1 Mac
 
 The instructions for installing mvBIMBAM on a Mac are included here.
 
@@ -368,7 +381,7 @@ Note that Confirm install/move worked:
 For example, on my machine, bimbam is located at `/usr/local/bin/bimbam`
 now.
 
-# 4 Synthetic data set overview
+# 5 Synthetic data set overview
 
 To facilitate hands-on learning, a synthetic data set was created for
 use with this example code. The synthetic data set was created from a
@@ -445,20 +458,20 @@ Data dictionary (continued below)
 |        Numeric         |                                                                                                                                                                                                                   |
 |        Numeric         |                                                                                                                                                                                                                   |
 
-# 5 Examples
+# 6 Examples
 
 To prepare the data before running the examples, see
 `00_mvNUR_DataPrep.Rmd`. After running that markdown, examples of each
 method can be found in `01_mvNUR_bnlearn.Rmd` and
 `02_mvNUR_mvBIMBAM.Rmd`.
 
-# 6 Contact information
+# 7 Contact information
 
 If you have any questions or comments, please feel free to contact me!
 
 Lacey W. Heinsberg, PhD, RN: <law145@pitt.edu>
 
-# 7 Acknowledgments
+# 8 Acknowledgments
 
 I’d like to express my gratitude to the following for their support and
 contributions to this repository:
